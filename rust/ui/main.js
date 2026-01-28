@@ -112,12 +112,6 @@ function renderBoard() {
                 pieceEl.className = `piece ${color}`;
 
                 const symbols = pieceSymbols[piece.kind];
-                if (!symbols) {
-                    console.log('Unknown piece kind:', piece.kind, 'Available keys:', Object.keys(pieceSymbols));
-                }
-                if (piece.kind === 'experiment') {
-                    console.log('Experiment piece:', piece, 'symbols:', symbols, 'color:', color);
-                }
                 pieceEl.textContent = symbols ? symbols[color] : '?';
 
                 square.appendChild(pieceEl);

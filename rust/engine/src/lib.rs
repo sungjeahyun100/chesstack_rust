@@ -96,7 +96,7 @@ impl PieceKind {
             PieceKind::Camel => 3,
             PieceKind::TempestRook => 7,
             PieceKind::Cannon => 5,
-            PieceKind::Experiment => 0, //실험용 기물.
+            PieceKind::Experiment => 1, //실험용 기물.
             PieceKind::Custom(_) => 3, // 기본값
         }
     }
@@ -269,8 +269,9 @@ impl PieceKind {
                  do peek(0, 1) while friendly(0, 0) move(0, 1) repeat(1);
                  do peek(0, -1) while friendly(0, 0) move(0, -1) repeat(1);"
             }
-            PieceKind::Experiment => {
-                "catch(0, 1); take(1, 0);"
+            PieceKind::Experiment => { //행마법(x, y)
+                "shift(-1, 0); shift(0, 1); shift(0, -1);
+                 shift(1, 1); shift(1, -1); shift(-1, 1); shift(-1, -1); catch(1, 0);"
             }
             PieceKind::Custom(_) => {
                 // 커스텀 기물: 기본적으로 킹처럼
@@ -391,6 +392,7 @@ pub struct LegalMove {
     pub move_type: MoveType,
     pub is_capture: bool,
     pub tags: Vec<chessembly::ActionTag>,
+    pub catch_to: Square,
 }
 
 /// 게임 상태
@@ -665,6 +667,105 @@ impl GameState {
         }
         
         Ok(())
+    }
+
+    pub fn move_piece_by_legal_moves(&mut self, mv: LegalMove) -> Result<Option<PieceId>, String> {
+        let from = mv.from;
+        let to = mv.to;
+    
+        // 출발 위치의 기물 확인
+        let piece_id = self.board.get(&from).cloned().ok_or("출발 위치에 기물이 없습니다")?;
+        let piece = self.pieces.get(&piece_id).cloned().ok_or("기물을 찾을 수 없습니다")?;
+        let player = piece.owner;
+    
+        // 이동 가능성 검사 (기존 검증 로직 재사용)
+        self.can_move_piece(player, &piece_id, from, to, mv.move_type)?;
+    
+        let mut captured_id: Option<PieceId> = None;
+    
+        match mv.move_type {
+            MoveType::Move => {
+                self.board.remove(&from);
+                self.board.insert(to, piece_id.clone());
+                if let Some(p) = self.pieces.get_mut(&piece_id) {
+                    p.pos = Some(to);
+                    p.move_stack -= 1;
+                }
+            }
+    
+            MoveType::Take | MoveType::TakeMove => {
+                if let Some(victim_id) = self.board.get(&to).cloned() {
+                    captured_id = Some(victim_id.clone());
+                    self.capture(&piece_id, &victim_id)?;
+                }
+    
+                self.board.remove(&from);
+                self.board.insert(to, piece_id.clone());
+    
+                if let Some(p) = self.pieces.get_mut(&piece_id) {
+                    p.pos = Some(to);
+                    if captured_id.is_none() {
+                        p.move_stack -= 1;
+                    }
+                }
+            }
+    
+            MoveType::Catch => {
+                // 제자리에서의 잡기: 대상은 `to` 칸에 있어야 함
+                if let Some(victim_id) = self.board.get(&to).cloned() {
+                    captured_id = Some(victim_id.clone());
+                    self.capture(&piece_id, &victim_id)?;
+                    // 공격자는 자리 이동하지 않음 (capture()가 스택 갱신 및 제거 처리)
+                } else {
+                    return Err("Catch 대상이 없습니다".to_string());
+                }
+            }
+    
+            MoveType::Shift => {
+                // 자리 교환
+                if let Some(target_piece_id) = self.board.get(&to).cloned() {
+                    self.board.remove(&from);
+                    self.board.remove(&to);
+                    self.board.insert(from, target_piece_id.clone());
+                    self.board.insert(to, piece_id.clone());
+    
+                    if let Some(p) = self.pieces.get_mut(&piece_id) {
+                        p.pos = Some(to);
+                        p.move_stack -= 1;
+                    }
+                    if let Some(tp) = self.pieces.get_mut(&target_piece_id) {
+                        tp.pos = Some(from);
+                    }
+                } else {
+                    return Err("Shift 대상이 없습니다".to_string());
+                }
+            }
+    
+            MoveType::Jump => {
+                // 빈 칸으로 이동
+                self.board.remove(&from);
+                self.board.insert(to, piece_id.clone());
+                if let Some(p) = self.pieces.get_mut(&piece_id) {
+                    p.pos = Some(to);
+                    p.move_stack -= 1;
+                }
+    
+                // 만약 `catch_to`에 캡처 대상 좌표가 담겨있다면 그 칸의 기물을 제거
+                // (현재 코드에서 빈 값을 (0,0)으로 처리하고 있으므로 정확한 sentinel 처리 필요)
+                if mv.catch_to.is_valid() {
+                    if let Some(victim_id) = self.board.get(&mv.catch_to).cloned() {
+                        // 캡처 규칙 적용
+                        captured_id = Some(victim_id.clone());
+                        self.capture(&piece_id, &victim_id)?;
+                    }
+                }
+            }
+        }
+    
+        // 활성 이동 기물 설정
+        self.active_piece = Some(piece_id.clone());
+    
+        Ok(captured_id)
     }
     
     /// 이동 실행 (캡처 포함)
@@ -978,6 +1079,10 @@ impl GameState {
         // 활성화된 칸들을 LegalMove로 변환
         for activation in activations {
             let target = Square::new(pos.x + activation.dx, pos.y + activation.dy);
+            let mut takemove_sq = Square::new(0, 0);
+            if let Some((x, y)) = activation.catch_to {
+                takemove_sq = Square::new(pos.x + x, pos.y + y);
+            }
             
             // 보드 범위 확인
             if !target.is_valid() {
@@ -992,6 +1097,7 @@ impl GameState {
                 move_type: activation.move_type,
                 is_capture,
                 tags: activation.tags,
+                catch_to: takemove_sq,
             });
         }
         
@@ -1212,8 +1318,11 @@ impl GameState {
             }
             Action::Move { piece_id, from, to } => {
                 // MoveType 찾기
-                if let Some(move_type) = self.get_move_type(&piece_id, from, to) {
-                    let _ = self.move_piece(self.turn, &piece_id, from, to, move_type);
+                let legal_moves = self.get_legal_moves_at(from);
+                for legal_move in legal_moves {
+                    if to == legal_move.to {
+                        let _ = self.move_piece_by_legal_moves(legal_move);
+                    } 
                 }
             }
             Action::Stun { piece_id, amount } => {

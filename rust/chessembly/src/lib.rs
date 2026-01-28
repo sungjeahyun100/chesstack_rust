@@ -36,6 +36,7 @@ pub struct Activation {
     pub dy: i32,              // 기물 위치 기준 y 오프셋
     pub move_type: MoveType,  // 행마법 종류
     pub tags: Vec<ActionTag>, // 부착된 액션 태그들
+    pub catch_to: Option<(i32, i32)>, //jump행마용 기물 잡는 곳 저장소
 }
 
 /// 보드 상태 (외부에서 제공)
@@ -518,6 +519,7 @@ impl Interpreter {
                             dy: anchor_y + dy,
                             move_type: MoveType::TakeMove,
                             tags: pending_tags.clone(),
+                            catch_to: None,
                         });
                         anchor_x += dx;
                         anchor_y += dy;
@@ -528,6 +530,7 @@ impl Interpreter {
                             dy: anchor_y + dy,
                             move_type: MoveType::TakeMove,
                             tags: pending_tags.clone(),
+                            catch_to: None,
                         });
                         anchor_x += dx;
                         anchor_y += dy;
@@ -545,6 +548,7 @@ impl Interpreter {
                             dy: anchor_y + dy,
                             move_type: MoveType::Move,
                             tags: pending_tags.clone(),
+                            catch_to: None,
                         });
                         anchor_x += dx;
                         anchor_y += dy;
@@ -566,6 +570,7 @@ impl Interpreter {
                             dy: anchor_y + dy,
                             move_type: MoveType::Take,
                             tags: pending_tags.clone(),
+                            catch_to: None,
                         });
                         anchor_x += dx;
                         anchor_y += dy;
@@ -599,6 +604,7 @@ impl Interpreter {
                                 dy: anchor_y + dy,
                                 move_type: MoveType::Jump,
                                 tags: pending_tags.clone(),
+                                catch_to: last_take_pos,
                             });
                             anchor_x += dx;
                             anchor_y += dy;
@@ -621,6 +627,7 @@ impl Interpreter {
                             dy: anchor_y + dy,
                             move_type: MoveType::Catch,
                             tags: pending_tags.clone(),
+                            catch_to: None,
                         });
                         last_value = true;
                     } else {
@@ -639,6 +646,7 @@ impl Interpreter {
                             dy: anchor_y + dy,
                             move_type: MoveType::Shift,
                             tags: pending_tags.clone(),
+                            catch_to: None,
                         });
                         anchor_x += dx;
                         anchor_y += dy;
