@@ -71,6 +71,7 @@ pub enum PieceKind {
     Camel,
     TempestRook,
     Cannon,
+    Experiment,
     Custom(String),
 }
 
@@ -95,6 +96,7 @@ impl PieceKind {
             PieceKind::Camel => 3,
             PieceKind::TempestRook => 7,
             PieceKind::Cannon => 5,
+            PieceKind::Experiment => 0, //실험용 기물.
             PieceKind::Custom(_) => 3, // 기본값
         }
     }
@@ -266,6 +268,9 @@ impl PieceKind {
                  do peek(-1, 0) while friendly(0, 0) move(-1, 0) repeat(1);
                  do peek(0, 1) while friendly(0, 0) move(0, 1) repeat(1);
                  do peek(0, -1) while friendly(0, 0) move(0, -1) repeat(1);"
+            }
+            PieceKind::Experiment => {
+                "catch(0, 1); take(1, 0);"
             }
             PieceKind::Custom(_) => {
                 // 커스텀 기물: 기본적으로 킹처럼
@@ -1101,6 +1106,7 @@ impl GameState {
             PieceSpec::new(PieceKind::Camel),
             PieceSpec::new(PieceKind::TempestRook),
             PieceSpec::new(PieceKind::Cannon),
+            PieceSpec::new(PieceKind::Experiment),
         ];
         self.setup_pocket_unchecked(0, white_pocket);
         
@@ -1117,6 +1123,7 @@ impl GameState {
             PieceSpec::new(PieceKind::Camel),
             PieceSpec::new(PieceKind::TempestRook),
             PieceSpec::new(PieceKind::Cannon),
+            PieceSpec::new(PieceKind::Experiment),
         ];
         self.setup_pocket_unchecked(1, black_pocket);
     }

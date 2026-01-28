@@ -23,7 +23,8 @@ const pieceSymbols = {
     ferz: { white: 'Fz', black: 'fz' },
     centaur: { white: 'Ce', black: 'ce' },
     camel: { white: 'Ca', black: 'ca' },
-    cannon: {white: 'Cn', black: "cn"},
+    cannon: {white: 'Cn', black: 'cn'},
+    experiment: {white: 'Ex', black: 'ex'},
     // Custom 기물은 fallback '?' 처리
 };
 
@@ -45,6 +46,14 @@ function renderBoard() {
     board.innerHTML = '';
 
     const state = game.get_state();
+    
+    // 실험용 기물 확인
+    const expPieces = state.pieces.filter(p => p.kind === 'experiment');
+    if (expPieces.length > 0) {
+        console.log('Experiment pieces found:', expPieces);
+        console.log('pieceSymbols has experiment?', 'experiment' in pieceSymbols);
+        console.log('pieceSymbols.experiment:', pieceSymbols.experiment);
+    }
 
     // y=7이 위 (흑 진영), y=0이 아래 (백 진영)
     for (let y = 7; y >= 0; y--) {
@@ -103,6 +112,12 @@ function renderBoard() {
                 pieceEl.className = `piece ${color}`;
 
                 const symbols = pieceSymbols[piece.kind];
+                if (!symbols) {
+                    console.log('Unknown piece kind:', piece.kind, 'Available keys:', Object.keys(pieceSymbols));
+                }
+                if (piece.kind === 'experiment') {
+                    console.log('Experiment piece:', piece, 'symbols:', symbols, 'color:', color);
+                }
                 pieceEl.textContent = symbols ? symbols[color] : '?';
 
                 square.appendChild(pieceEl);

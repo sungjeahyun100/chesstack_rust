@@ -215,6 +215,7 @@ impl Game {
             PieceKind::Camel => "camel".to_string(),
             PieceKind::TempestRook => "tempestrook".to_string(),
             PieceKind::Cannon => "cannon".to_string(),
+            PieceKind::Experiment => "experiment".to_string(),
             PieceKind::Custom(s) => s.clone(),
         }
     }
@@ -238,6 +239,7 @@ impl Game {
             "camel" => PieceKind::Camel,
             "tempestrook" => PieceKind::TempestRook,
             "cannon" => PieceKind::Cannon,
+            "experiment" => PieceKind::Experiment,
             _ => PieceKind::Custom(s.to_string()),
         }
     }
