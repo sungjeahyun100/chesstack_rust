@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chesstack</title>
+    <link rel="stylesheet" href="./ui/style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="board-container">
+            <div class="board" id="board"></div>
+            <div class="file-labels">
+                <span>a</span><span>b</span><span>c</span><span>d</span>
+                <span>e</span><span>f</span><span>g</span><span>h</span>
+            </div>
+        </div>
+        
+        <div class="sidebar">
+            <div class="panel">
+                <div class="turn-indicator" id="turnIndicator">
+                    ⚪ 백 차례
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h2>⚪ 백 포켓</h2>
+                <div class="pocket" id="whitePocket"></div>
+            </div>
+            
+            <div class="panel">
+                <h2>⚫ 흑 포켓</h2>
+                <div class="pocket" id="blackPocket"></div>
+            </div>
+            
+            <div class="panel">
+                <button class="btn" onclick="endTurn()">턴 종료</button>
+                <button class="btn" onclick="newGame()">새 게임</button>
+                <button class="btn" onclick="experimentalGame()" style="background: #16a085;">실험용</button>
+            </div>
+            
+            <div class="panel">
+                <h2>📖 행마법 타입</h2>
+                <div class="legend">
+                    <div class="legend-item">
+                        <span class="legend-symbol" style="color: rgba(0, 200, 100, 0.8);">○</span>
+                        <span>Move: 이동만</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-symbol" style="color: rgba(255, 100, 100, 0.9);">×</span>
+                        <span>Take: 잡기만</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-symbol" style="color: rgba(0, 150, 255, 0.8);">●</span>
+                        <span>TakeMove: 이동/잡기</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-symbol" style="color: rgba(255, 150, 0, 0.9);">⊕</span>
+                        <span>Catch: 원거리 잡기</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-symbol" style="color: rgba(150, 0, 255, 0.8);">⇄</span>
+                        <span>Shift: 자리바꾸기</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-symbol" style="color: rgba(0, 255, 200, 0.8);">◇</span>
+                        <span>Jump: 점프</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./ui/main.js"></script>
+</body>
+</html>

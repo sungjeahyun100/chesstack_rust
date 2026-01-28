@@ -1,0 +1,9 @@
+# Centralized piece score table used by pocket builder and engine
+# Total pocket score must not exceed 39.
+
+[pieces]
+pawn = 1
+knight = 3
+rook = 5
+king = 11
+custom_example = 7

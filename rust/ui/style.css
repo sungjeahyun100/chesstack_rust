@@ -1,0 +1,256 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+}
+
+.game-container {
+    display: flex;
+    gap: 40px;
+    padding: 20px;
+}
+
+.board-container {
+    position: relative;
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(8, 70px);
+    grid-template-rows: repeat(8, 70px);
+    border: 4px solid #0f3460;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.square {
+    width: 70px;
+    height: 70px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.square.light {
+    background: #e8d5b5;
+}
+
+.square.dark {
+    background: #b58863;
+}
+
+.square:hover {
+    filter: brightness(1.1);
+}
+
+.square.selected {
+    background: #7ec8e3 !important;
+}
+
+.square.legal-move::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: rgba(0, 200, 100, 0.6);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+/* MoveType별 시각적 구분 */
+.move-indicator-dot {
+    position: absolute;
+    font-size: 32px;
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.move-type-move .move-indicator-dot {
+    color: rgba(0, 200, 100, 0.8);
+}
+
+.move-type-take .move-indicator-dot {
+    color: rgba(255, 100, 100, 0.9);
+}
+
+.move-type-takemove .move-indicator-dot {
+    color: rgba(0, 150, 255, 0.8);
+}
+
+.move-type-catch .move-indicator-dot {
+    color: rgba(255, 150, 0, 0.9);
+}
+
+.move-type-shift .move-indicator-dot {
+    color: rgba(150, 0, 255, 0.8);
+}
+
+.move-type-jump .move-indicator-dot {
+    color: rgba(0, 255, 200, 0.8);
+}
+
+.square.legal-capture {
+    box-shadow: inset 0 0 0 4px rgba(255, 100, 100, 0.8);
+}
+
+.piece {
+    font-size: 48px;
+    user-select: none;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+}
+
+.piece.white {
+    filter: drop-shadow(1px 1px 1px #333);
+}
+
+.piece.black {
+    filter: drop-shadow(1px 1px 1px #666);
+}
+
+.stun-indicator {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: #e74c3c;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+.move-indicator {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background: #3498db;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+.sidebar {
+    width: 250px;
+}
+
+.panel {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.panel h2 {
+    margin-bottom: 15px;
+    color: #7ec8e3;
+    font-size: 18px;
+}
+
+.turn-indicator {
+    font-size: 24px;
+    text-align: center;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.pocket {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.pocket-piece {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 28px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pocket-piece:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.pocket-piece.selected {
+    outline: 2px solid #7ec8e3;
+    box-shadow: 0 0 10px rgba(126, 200, 227, 0.8);
+}
+
+.btn {
+    width: 100%;
+    padding: 12px;
+    background: #0f3460;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 10px;
+}
+
+.btn:hover {
+    background: #1a5276;
+}
+
+.coordinates {
+    position: absolute;
+    font-size: 12px;
+    color: #666;
+}
+
+.file-labels {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 5px;
+}
+
+.rank-labels {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    margin-right: 5px;
+}
+
+.legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+
+.legend-symbol {
+    font-size: 24px;
+    font-weight: bold;
+    width: 30px;
+    text-align: center;
+}
