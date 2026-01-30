@@ -391,14 +391,12 @@ impl<'a> Lexer<'a> {
 /// 인터프리터
 pub struct Interpreter {
     tokens: Vec<Token>,
-    labels: HashMap<String, usize>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Interpreter {
             tokens: Vec::new(),
-            labels: HashMap::new(),
         }
     }
     
@@ -406,12 +404,7 @@ impl Interpreter {
     pub fn parse(&mut self, input: &str) {
         let mut lexer = Lexer::new(input);
         self.tokens.clear();
-        self.labels.clear();
-        
         while let Some(token) = lexer.next_token() {
-            if let Token::Label(ref name) = token {
-                self.labels.insert(name.clone(), self.tokens.len());
-            }
             self.tokens.push(token);
         }
     }
@@ -420,6 +413,10 @@ impl Interpreter {
     pub fn execute(&self, board: &mut BoardState) -> Vec<Activation> {
         let mut activations = Vec::new();
         let mut pc = 0usize; // 프로그램 카운터
+        // 라벨 인덱스는 실행마다 로컬로 계산하여 체인 종료 시 재설정됩니다.
+        let mut labels: HashMap<String, usize> = HashMap::new();
+
+        let mut num_of_open_brace = 0usize; //범위 밖의 닫힌괄호에 인터프리터가 멈추지 않게 하기 위한 카운터
         
         // 앵커 (기준 위치) - 기물 위치로부터의 누적 오프셋
         let mut anchor_x = 0i32;
@@ -461,17 +458,28 @@ impl Interpreter {
                             pending_tags.clear();
                             do_index = None;
                             last_take_pos = None;
+                            labels = HashMap::new();
                             pc += 1; 
                             break; 
                         }
                         Token::CloseBrace => {
                             // 스코프 복원
+                            if num_of_open_brace > 0 {
+                                num_of_open_brace -= 1;
+                                pc += 1;
+                                continue;
+                            }
                             if let Some((ax, ay, _)) = scope_stack.pop() {
                                 anchor_x = ax;
                                 anchor_y = ay;
                             }
                             pc += 1;
                             break;
+                        }
+                        Token::OpenBrace => {
+                            num_of_open_brace += 1;
+                            pc += 1;
+                            continue;
                         }
                         _ => pc += 1,
                     }
@@ -729,12 +737,14 @@ impl Interpreter {
                 
                 Token::EdgeTop(_, dy) => {
                     let target_y = board.piece_y + anchor_y + dy;
-                    last_value = target_y >= board.board_height;
+                    // Top edge -> outside above the board (y < 0)
+                    last_value = target_y < 0;
                 }
-                
+
                 Token::EdgeBottom(_, dy) => {
                     let target_y = board.piece_y + anchor_y + dy;
-                    last_value = target_y < 0;
+                    // Bottom edge -> outside below the board (y >= board_height)
+                    last_value = target_y >= board.board_height;
                 }
                 
                 Token::EdgeLeft(dx, _) => {
@@ -846,7 +856,7 @@ impl Interpreter {
                 Token::Jmp(label) => {
                     // 예외: false여도 종료 안함
                     if last_value {
-                        if let Some(&target) = self.labels.get(label) {
+                        if let Some(&target) = labels.get(label) {
                             pc = target;
                         }
                     }
@@ -856,7 +866,7 @@ impl Interpreter {
                 Token::Jne(label) => {
                     // 예외: false면 점프, 체인 종료 안함
                     if !last_value {
-                        if let Some(&target) = self.labels.get(label) {
+                        if let Some(&target) = labels.get(label) {
                             pc = target;
                         }
                     }
@@ -1083,6 +1093,16 @@ mod tests {
         // observe=false -> not=true -> jne 안함 -> move(2,0) 시도하지만 실패
         // 그래서 label(SKIP) move(1,0)도 별도 체인으로 실행됨
         assert!(activations.len() >= 1);
+    }
+
+    #[test]
+    fn test_skip_chain_over_braces_until_semicolon() {
+        let mut interp = Interpreter::new();
+        interp.parse("if-state(mode, 1) set-state(mode, 0) { take-move(1, 0) repeat(1) } { take-move(-1, 0) repeat(1) };");
+        let mut board = make_empty_board();
+        // mode 기본 0이므로 조건 불만족 -> 모든 take-move는 무시되어야 함
+        let activations = interp.execute(&mut board);
+        assert_eq!(activations.len(), 0);
     }
 }
 

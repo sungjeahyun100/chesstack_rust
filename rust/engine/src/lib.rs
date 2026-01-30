@@ -270,8 +270,50 @@ impl PieceKind {
                  do peek(0, -1) while friendly(0, 0) move(0, -1) repeat(1);"
             }
             PieceKind::Experiment => { //행마법(x, y)
-                "shift(-1, 0); shift(0, 1); shift(0, -1);
-                 shift(1, 1); shift(1, -1); shift(-1, 1); shift(-1, -1); catch(1, 0);"
+                "do
+                    take-move(1, 1)
+                 while
+                 peek(0, 0)
+                 edge-right(1, 1) jne(0)
+                   take-move(-1, 1) repeat(1)
+                 label(0)
+                 edge-top(1, 1) jne(1)
+                   take-move(1, -1) repeat(1)
+                 label(1);
+
+                 do 
+                    take-move(-1, 1) 
+                 while 
+                 peek(0, 0) 
+                 edge-left(-1, 1) jne(0) 
+                    take-move(1, 1) repeat(1) 
+                 label(0) 
+                 edge-top(-1, 1) jne(1) 
+                    take-move(-1, -1) repeat(1) 
+                 label(1);
+
+                 do 
+                    take-move(1, -1) 
+                 while 
+                 peek(0, 0) 
+                 edge-right(1, -1) jne(0) 
+                    take-move(-1, -1) repeat(1) 
+                 label(0) 
+                 edge-bottom(1, -1) jne(1) 
+                    take-move(1, 1) repeat(1) 
+                 label(1);
+
+                 do 
+                    take-move(-1, -1) 
+                 while 
+                 peek(0, 0) 
+                 edge-left(-1, -1) jne(0) 
+                    take-move(1, -1) repeat(1) 
+                 label(0) 
+                 edge-bottom(-1, -1) jne(1) 
+                    take-move(-1, 1) repeat(1) 
+                 label(1);
+                 "
             }
             PieceKind::Custom(_) => {
                 // 커스텀 기물: 기본적으로 킹처럼
@@ -669,9 +711,56 @@ impl GameState {
         Ok(())
     }
 
+    /// 액션 태그 처리 (이동 후 적용)
+    fn apply_action_tags(&mut self, piece_id: &PieceId, tags: &[chessembly::ActionTag]) {
+        for tag in tags {
+            match tag.tag_type {
+                chessembly::ActionTagType::Transition => {
+                    // 기물 변환
+                    if let Some(piece_name) = &tag.piece_name {
+                        if let Some(piece) = self.pieces.get_mut(piece_id) {
+                            // 문자열을 PieceKind로 변환
+                            let new_kind = match piece_name.to_lowercase().as_str() {
+                                "pawn" => PieceKind::Pawn,
+                                "king" => PieceKind::King,
+                                "queen" => PieceKind::Queen,
+                                "rook" => PieceKind::Rook,
+                                "knight" => PieceKind::Knight,
+                                "bishop" => PieceKind::Bishop,
+                                "amazon" => PieceKind::Amazon,
+                                "grasshopper" => PieceKind::Grasshopper,
+                                "knightrider" => PieceKind::Knightrider,
+                                "archbishop" => PieceKind::Archbishop,
+                                "dabbaba" => PieceKind::Dabbaba,
+                                "alfil" => PieceKind::Alfil,
+                                "ferz" => PieceKind::Ferz,
+                                "centaur" => PieceKind::Centaur,
+                                "camel" => PieceKind::Camel,
+                                "tempestrook" => PieceKind::TempestRook,
+                                "cannon" => PieceKind::Cannon,
+                                "experiment" => PieceKind::Experiment,
+                                _ => continue,
+                            };
+                            
+                            // 기물 종류 변환
+                            piece.kind = new_kind.clone();
+                            // 이동 스택도 새 기물 점수에 맞게 조정
+                            piece.move_stack = Self::initial_move_stack(new_kind.score());
+                        }
+                    }
+                }
+                chessembly::ActionTagType::SetState => {
+                    // 전역 상태 설정
+                    self.global_state.insert(tag.key.clone(), tag.value);
+                }
+            }
+        }
+    }
+
     pub fn move_piece_by_legal_moves(&mut self, mv: LegalMove) -> Result<Option<PieceId>, String> {
         let from = mv.from;
         let to = mv.to;
+        let tags = mv.tags.clone(); // 태그 복사
     
         // 출발 위치의 기물 확인
         let piece_id = self.board.get(&from).cloned().ok_or("출발 위치에 기물이 없습니다")?;
@@ -764,6 +853,9 @@ impl GameState {
     
         // 활성 이동 기물 설정
         self.active_piece = Some(piece_id.clone());
+        
+        // 액션 태그 적용 (이동 완료 후)
+        self.apply_action_tags(&piece_id, &tags);
     
         Ok(captured_id)
     }
