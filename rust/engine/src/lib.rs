@@ -270,48 +270,16 @@ impl PieceKind {
                  do peek(0, -1) while friendly(0, 0) move(0, -1) repeat(1);"
             }
             PieceKind::Experiment => { //행마법(x, y)
-                "do
-                    take-move(1, 1)
-                 while
-                 peek(0, 0)
-                 edge-right(1, 1) jne(0)
-                   take-move(-1, 1) repeat(1)
-                 label(0)
-                 edge-top(1, 1) jne(1)
-                   take-move(1, -1) repeat(1)
-                 label(1);
-
-                 do 
-                    take-move(-1, 1) 
-                 while 
-                 peek(0, 0) 
-                 edge-left(-1, 1) jne(0) 
-                    take-move(1, 1) repeat(1) 
-                 label(0) 
-                 edge-top(-1, 1) jne(1) 
-                    take-move(-1, -1) repeat(1) 
-                 label(1);
-
+                "
                  do 
                     take-move(1, -1) 
                  while 
                  peek(0, 0) 
-                 edge-right(1, -1) jne(0) 
-                    take-move(-1, -1) repeat(1) 
-                 label(0) 
-                 edge-bottom(1, -1) jne(1) 
+                 edge-bottom(1, -1) jne(0) 
                     take-move(1, 1) repeat(1) 
-                 label(1);
-
-                 do 
-                    take-move(-1, -1) 
-                 while 
-                 peek(0, 0) 
-                 edge-left(-1, -1) jne(0) 
-                    take-move(1, -1) repeat(1) 
                  label(0) 
-                 edge-bottom(-1, -1) jne(1) 
-                    take-move(-1, 1) repeat(1) 
+                 edge-right(1, -1) jne(1) 
+                    take-move(-1, -1) repeat(1) 
                  label(1);
                  "
             }
@@ -447,6 +415,7 @@ pub struct GameState {
     pub global_state: HashMap<String, i32>,
     pub active_piece: Option<PieceId>,  // 현재 턴에 이동 중인 기물
     pub action_taken: bool,              // 이번 턴에 행동했는지 (이동 제외)
+    pub debug_mode: bool,                // Chessembly 디버그 모드
     next_piece_id: u32,
 }
 
@@ -463,6 +432,7 @@ impl GameState {
             global_state: HashMap::new(),
             active_piece: None,
             action_taken: false,
+            debug_mode: false,
             next_piece_id: 0,
         };
         
@@ -1165,6 +1135,7 @@ impl GameState {
         
         // chessembly 인터프리터 실행
         let mut interpreter = Interpreter::new();
+        interpreter.set_debug(self.debug_mode);
         interpreter.parse(script);
         let activations = interpreter.execute(&mut board);
         
@@ -1674,6 +1645,7 @@ mod tests {
         
         let mut board = state.to_chessembly_board(&rook_id).unwrap();
         let mut interpreter = Interpreter::new();
+        interpreter.set_debug(state.debug_mode);
         interpreter.parse(script);
         let activations = interpreter.execute(&mut board);
         

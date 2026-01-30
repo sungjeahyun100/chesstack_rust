@@ -2,6 +2,29 @@
 
 use std::collections::HashMap;
 
+/// 디버그 로그 출력 (WASM 환경에서는 JS console.log로 전달)
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+#[cfg(target_arch = "wasm32")]
+fn log_debug(msg: &str) {
+    unsafe {
+        log(msg);
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn log_debug(msg: &str) {
+    println!("DEBUG: {}", msg);
+}
+
 /// 행마법 종류
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MoveType {
@@ -391,13 +414,29 @@ impl<'a> Lexer<'a> {
 /// 인터프리터
 pub struct Interpreter {
     tokens: Vec<Token>,
+    pub debug: bool,  // 디버그 모드 활성화 여부
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Interpreter {
+            debug: false,
             tokens: Vec::new(),
         }
+    }
+    
+    /// 디버그 모드 설정
+    pub fn set_debug(&mut self, enabled: bool) {
+        self.debug = enabled;
+    }
+    
+    /// 활성화 추가 (디버그 로깅 포함)
+    fn add_activation(&self, activations: &mut Vec<Activation>, activation: Activation) {
+        if self.debug {
+            log_debug(&format!("    → Activation: ({}, {}) {:?}", 
+                activation.dx, activation.dy, activation.move_type));
+        }
+        activations.push(activation);
     }
     
     /// 스크립트 파싱
@@ -411,12 +450,20 @@ impl Interpreter {
     
     /// 행마법 계산 실행
     pub fn execute(&self, board: &mut BoardState) -> Vec<Activation> {
+        if self.debug {
+            log_debug(&format!("[Chessembly] Executing script for {} at ({}, {})", 
+                board.piece_name, board.piece_x, board.piece_y));
+            log_debug(&format!("[Chessembly] Total tokens: {}", self.tokens.len()));
+        }
+        
         let mut activations = Vec::new();
         let mut pc = 0usize; // 프로그램 카운터
         // 라벨 인덱스는 실행마다 로컬로 계산하여 체인 종료 시 재설정됩니다.
-        let mut labels: HashMap<String, usize> = HashMap::new();
+        let mut labels: HashMap<usize, HashMap<String, usize>> = HashMap::new();
 
         let mut num_of_open_brace = 0usize; //범위 밖의 닫힌괄호에 인터프리터가 멈추지 않게 하기 위한 카운터
+
+        let mut index_of_expression_chain = 0usize; //몇번째 식 연쇄인지 카운팅 
         
         // 앵커 (기준 위치) - 기물 위치로부터의 누적 오프셋
         let mut anchor_x = 0i32;
@@ -436,9 +483,38 @@ impl Interpreter {
         
         // 마지막 take 위치 (jump용)
         let mut last_take_pos: Option<(i32, i32)> = None;
-        
+
+        //label index pre-processing
         while pc < self.tokens.len() {
             let token = &self.tokens[pc];
+
+            pc += 1;
+
+            match token {
+                Token::Semicolon => {
+                    index_of_expression_chain += 1;
+                }
+                Token::Label(n) => {
+                    labels
+                        .entry(index_of_expression_chain)
+                        .or_insert_with(HashMap::new)
+                        .insert(n.to_string(), pc);
+                },
+                _ => continue,
+            }
+        }
+
+        pc = 0;
+        index_of_expression_chain = 0;
+
+        while pc < self.tokens.len() {
+            let token = &self.tokens[pc];
+            
+            if self.debug {
+                log_debug(&format!("  [PC:{}] Token: {:?} | Anchor: ({}, {}) | LastValue: {}", 
+                    pc, token, anchor_x, anchor_y, last_value));
+            }
+            
             pc += 1;
             
             // 일반 식이 false를 반환하면 체인 종료 (예외 제외)
@@ -460,6 +536,7 @@ impl Interpreter {
                             last_take_pos = None;
                             labels = HashMap::new();
                             pc += 1; 
+                            index_of_expression_chain += 1;
                             break; 
                         }
                         Token::CloseBrace => {
@@ -497,6 +574,7 @@ impl Interpreter {
                     pending_tags.clear();
                     do_index = None;
                     last_take_pos = None;
+                    index_of_expression_chain += 1;
                 }
                 
                 Token::OpenBrace => {
@@ -522,7 +600,7 @@ impl Interpreter {
                     if !board.in_bounds(target_x, target_y) || board.has_friendly(target_x, target_y) {
                         last_value = false;
                     } else if board.has_enemy(target_x, target_y) {
-                        activations.push(Activation {
+                        self.add_activation(&mut activations, Activation {
                             dx: anchor_x + dx,
                             dy: anchor_y + dy,
                             move_type: MoveType::TakeMove,
@@ -533,7 +611,7 @@ impl Interpreter {
                         anchor_y += dy;
                         last_value = false; // 적을 잡으면 체인 종료
                     } else {
-                        activations.push(Activation {
+                        self.add_activation(&mut activations, Activation {
                             dx: anchor_x + dx,
                             dy: anchor_y + dy,
                             move_type: MoveType::TakeMove,
@@ -551,7 +629,7 @@ impl Interpreter {
                     let target_y = board.piece_y + anchor_y + dy;
                     
                     if board.is_empty(target_x, target_y) {
-                        activations.push(Activation {
+                        self.add_activation(&mut activations, Activation {
                             dx: anchor_x + dx,
                             dy: anchor_y + dy,
                             move_type: MoveType::Move,
@@ -573,7 +651,7 @@ impl Interpreter {
                     if board.has_enemy(target_x, target_y) {
                         last_take_pos = Some((anchor_x + dx, anchor_y + dy));
                         // take 자체는 jump가 없으면 활성화
-                        activations.push(Activation {
+                        self.add_activation(&mut activations, Activation {
                             dx: anchor_x + dx,
                             dy: anchor_y + dy,
                             move_type: MoveType::Take,
@@ -607,7 +685,7 @@ impl Interpreter {
                         
                         if board.is_empty(target_x, target_y) {
                             // take 위치를 잡고, jump 위치로 이동하는 행마 활성화
-                            activations.push(Activation {
+                            self.add_activation(&mut activations, Activation {
                                 dx: anchor_x + dx,
                                 dy: anchor_y + dy,
                                 move_type: MoveType::Jump,
@@ -630,7 +708,7 @@ impl Interpreter {
                     let target_y = board.piece_y + anchor_y + dy;
                     
                     if board.has_enemy(target_x, target_y) {
-                        activations.push(Activation {
+                        self.add_activation(&mut activations, Activation {
                             dx: anchor_x + dx,
                             dy: anchor_y + dy,
                             move_type: MoveType::Catch,
@@ -649,7 +727,7 @@ impl Interpreter {
                     let target_y = board.piece_y + anchor_y + dy;
                     
                     if board.in_bounds(target_x, target_y) && !board.is_empty(target_x, target_y) {
-                        activations.push(Activation {
+                        self.add_activation(&mut activations, Activation {
                             dx: anchor_x + dx,
                             dy: anchor_y + dy,
                             move_type: MoveType::Shift,
@@ -737,14 +815,12 @@ impl Interpreter {
                 
                 Token::EdgeTop(_, dy) => {
                     let target_y = board.piece_y + anchor_y + dy;
-                    // Top edge -> outside above the board (y < 0)
-                    last_value = target_y < 0;
+                    last_value = target_y >= board.board_height;
                 }
 
                 Token::EdgeBottom(_, dy) => {
                     let target_y = board.piece_y + anchor_y + dy;
-                    // Bottom edge -> outside below the board (y >= board_height)
-                    last_value = target_y >= board.board_height;
+                    last_value = target_y < 0;
                 }
                 
                 Token::EdgeLeft(dx, _) => {
@@ -856,9 +932,8 @@ impl Interpreter {
                 Token::Jmp(label) => {
                     // 예외: false여도 종료 안함
                     if last_value {
-                        if let Some(&target) = labels.get(label) {
-                            pc = target;
-                        }
+                        let val_opt: usize = labels.get(&index_of_expression_chain).and_then(|inner| inner.get(label)).copied().expect("REASON");
+                        pc = val_opt;
                     }
                     last_value = true;
                 }
@@ -866,15 +941,14 @@ impl Interpreter {
                 Token::Jne(label) => {
                     // 예외: false면 점프, 체인 종료 안함
                     if !last_value {
-                        if let Some(&target) = labels.get(label) {
-                            pc = target;
-                        }
+                        let val_opt: usize = labels.get(&index_of_expression_chain).and_then(|inner| inner.get(label)).copied().expect("REASON");
+                        pc = val_opt;
                     }
                     last_value = true;
                 }
                 
                 Token::Label(_) => {
-                    // 라벨은 투명 - last_value 그대로 전달
+                    //skip
                 }
                 
                 Token::Not => {
@@ -1103,6 +1177,28 @@ mod tests {
         // mode 기본 0이므로 조건 불만족 -> 모든 take-move는 무시되어야 함
         let activations = interp.execute(&mut board);
         assert_eq!(activations.len(), 0);
+    }
+
+    #[test]
+    fn test_jmp(){
+        let mut interp = Interpreter::new();
+        interp.parse("piece(test) jmp(0) move(0, 1) label(0) piece(test) jmp(1) move(1, 0) move(1, 0) label(1); ");
+        let mut board = make_empty_board();
+        
+        //piece(test)는 true이니 label로 점프 해야 함.
+        let activations = interp.execute(&mut board);
+        assert_eq!(activations.len(), 0);
+    }
+
+    #[test]
+    fn test_jne(){
+        let mut interp = Interpreter::new();
+        interp.parse("piece(queen) jne(0) move(0, 1) label(0) move(1, 0) move(1, 0);");
+        let mut board = make_empty_board();
+        
+        //piece(queen)는 false이니 label로 점프 해야 함.
+        let activations = interp.execute(&mut board);
+        assert_eq!(activations.len(), 2);
     }
 }
 

@@ -65,6 +65,12 @@ impl Game {
         self.state.setup_experimental_pocket();
     }
     
+    /// 디버그 모드 설정 (Chessembly 실행 추적)
+    #[wasm_bindgen]
+    pub fn set_debug(&mut self, enabled: bool) {
+        self.state.debug_mode = enabled;
+    }
+    
     /// 현재 게임 상태를 JSON으로 반환
     #[wasm_bindgen]
     pub fn get_state(&self) -> JsValue {

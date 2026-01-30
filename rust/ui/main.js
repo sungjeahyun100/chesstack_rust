@@ -32,6 +32,9 @@ async function main() {
     await init();
     game = new Game();
     game.setup_initial();
+    
+    // 디버그 모드는 기본적으로 비활성화, toggleDebug로 켜고 끌 수 있음
+    
     render();
 }
 
@@ -46,14 +49,6 @@ function renderBoard() {
     board.innerHTML = '';
 
     const state = game.get_state();
-    
-    // 실험용 기물 확인
-    const expPieces = state.pieces.filter(p => p.kind === 'experiment');
-    if (expPieces.length > 0) {
-        console.log('Experiment pieces found:', expPieces);
-        console.log('pieceSymbols has experiment?', 'experiment' in pieceSymbols);
-        console.log('pieceSymbols.experiment:', pieceSymbols.experiment);
-    }
 
     // y=7이 위 (흑 진영), y=0이 아래 (백 진영)
     for (let y = 7; y >= 0; y--) {
@@ -272,9 +267,22 @@ function experimentalGame() {
     render();
 }
 
+function toggleDebug() {
+    const isDebug = !game.debug_mode;
+    game.set_debug(isDebug);
+    console.log(`%c[Chessembly Debug] ${isDebug ? 'ENABLED' : 'DISABLED'}`, 
+        `font-weight: bold; color: ${isDebug ? 'green' : 'red'}`);
+    
+    // 디버그 활성화 시 현재 선택된 기물이 있으면 즉시 행마법 재계산
+    if (isDebug && selectedSquare) {
+        legalMoves = game.get_legal_moves(selectedSquare.x, selectedSquare.y);
+    }
+}
+
 // expose globals for buttons
 window.endTurn = endTurn;
 window.newGame = newGame;
 window.experimentalGame = experimentalGame;
+window.toggleDebug = toggleDebug;
 
 main();
