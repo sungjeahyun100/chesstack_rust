@@ -504,8 +504,8 @@ impl Interpreter {
             }
         }
 
-        pc = 0;
-        index_of_expression_chain = 0;
+        pc = 0usize;
+        index_of_expression_chain = 0usize;
 
         while pc < self.tokens.len() {
             let token = &self.tokens[pc];
@@ -534,7 +534,6 @@ impl Interpreter {
                             pending_tags.clear();
                             do_index = None;
                             last_take_pos = None;
-                            labels = HashMap::new();
                             pc += 1; 
                             index_of_expression_chain += 1;
                             break; 

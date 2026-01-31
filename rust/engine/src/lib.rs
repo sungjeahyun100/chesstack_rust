@@ -271,16 +271,13 @@ impl PieceKind {
             }
             PieceKind::Experiment => { //행마법(x, y)
                 "
-                 do 
-                    take-move(1, -1) 
-                 while 
-                 peek(0, 0) 
-                 edge-bottom(1, -1) jne(0) 
-                    take-move(1, 1) repeat(1) 
-                 label(0) 
-                 edge-right(1, -1) jne(1) 
-                    take-move(-1, -1) repeat(1) 
-                 label(1);
+                 do take-move(1, 1) while peek(0, 0) edge-right(1, 1) jne(0) take-move(-1, 1) repeat(1) label(0) edge-top(1, 1) jne(1) take-move(1, -1) repeat(1) label(1);
+
+                 do take-move(-1, 1) while peek(0, 0) edge-left(-1, 1) jne(0) take-move(1, 1) repeat(1) label(0) edge-top(-1, 1) jne(1) take-move(-1, -1) repeat(1) label(1);
+                 
+                 do take-move(1, -1) while peek(0, 0) edge-right(1, -1) jne(0) take-move(-1, -1) repeat(1) label(0) edge-bottom(1, -1) jne(1) take-move(1, 1) repeat(1) label(1);
+                 
+                 do take-move(-1, -1) while peek(0, 0) edge-left(-1, -1) jne(0) take-move(1, -1) repeat(1) label(0) edge-bottom(-1, -1) jne(1) take-move(-1, 1) repeat(1) label(1);
                  "
             }
             PieceKind::Custom(_) => {
